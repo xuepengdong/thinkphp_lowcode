@@ -247,39 +247,88 @@
           </Form.Item>
         </div>
 
+        <!-- 显示字段表格 -->
         <div class="field-section">
           <div class="field-header">
-            <Button type="primary" size="small" @click="openFieldSelection">+ 打开字段选择区</Button>
+            <Button type="primary" size="small" @click="openFieldSelectionModal">+ 打开字段选择区</Button>
             <Button size="small" @click="clearDisplayFields">清空显示字段</Button>
           </div>
-          <div class="field-display-list">
-            <div 
-              v-for="(field, index) in pageSettingForm.displayFields" 
-              :key="index" 
-              class="field-display-item"
-            >
-              <span>{{ field.label }}</span>
-              <a @click="removeDisplayField(index)">×</a>
-            </div>
-            <div v-if="pageSettingForm.displayFields.length === 0" class="empty-tip">
-              暂无显示字段，请从下方字段选择区选择字段
-            </div>
+          <div class="field-grid-container">
+            <table class="field-grid-table">
+              <thead>
+                <tr>
+                  <th>显示字段</th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in displayFieldRows" :key="rowIndex">
+                  <td 
+                    v-for="(field, colIndex) in row" 
+                    :key="colIndex || 'empty'" 
+                    class="field-cell"
+                    @dragover.prevent="handleCellDragOver(rowIndex, colIndex, $event)"
+                    @dragleave="handleCellDragLeave"
+                    @drop="handleCellDrop(rowIndex, colIndex, $event)"
+                    :class="{ 'drop-cell': isDropTarget && dropPosition.rowIndex === rowIndex && dropPosition.colIndex === colIndex }"
+                  >
+                    <template v-if="field">
+                      <span class="field-tag">{{ field.label }}<span class="field-tag-close" @click="removeDisplayField(getFieldIndex(rowIndex, colIndex))">×</span></span>
+                    </template>
+                    <template v-else>
+                      <span class="empty-cell-hint">空</span>
+                    </template>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
+        <!-- 字段选择表格 -->
         <div class="field-section">
           <div class="field-header">
             <h4>字段选择</h4>
             <Button size="small" @click="refreshFields">刷新</Button>
           </div>
-          <div class="field-tree-container">
-            <a-tree
-              v-model:checkedKeys="selectedFieldKeys"
-              :tree-data="fieldTreeData"
-              :checkable="true"
-              @check="handleFieldCheck"
-              :field-names="{ title: 'label', key: 'fieldId', children: 'children' }"
-            />
+          <div class="field-grid-container">
+            <table class="field-grid-table field-selection-grid">
+              <thead>
+                <tr>
+                  <th>字段选择</th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, rowIndex) in availableFieldRows" :key="rowIndex">
+                  <td v-for="(field, colIndex) in row" :key="colIndex || 'empty'" class="field-cell">
+                    <template v-if="field">
+                      <div 
+                        class="field-draggable" 
+                        :class="{ 'dragging': draggingField?.id === field.id }"
+                        draggable="true"
+                        @dragstart="handleDragStart($event, field)"
+                        @dragend="handleDragEnd"
+                      >
+                        <label class="field-checkbox" :class="{ 'checked': isFieldSelected(field.id) }">
+                          <input type="checkbox" :checked="isFieldSelected(field.id)" @change="toggleFieldSelection(field)" />
+                          <span>{{ field.field_name_zh || field.field_name_en }}</span>
+                        </label>
+                      </div>
+                    </template>
+                  </td>
+                </tr>
+                <tr v-if="availableFields.length === 0">
+                  <td colspan="5" class="empty-cell">暂无可用字段</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -375,11 +424,69 @@
         </div>
       </Form>
     </Modal>
+
+    <!-- 字段选择弹窗 -->
+    <Modal
+      v-model:visible="fieldSelectionModalVisible"
+      title="选择字段"
+      width="900px"
+      @ok="handleFieldSelectionOk"
+      @cancel="handleFieldSelectionCancel"
+      okText="确定添加"
+      cancelText="取消"
+    >
+      <div class="field-selection-modal">
+        <div class="field-selection-header">
+          <span>可用字段</span>
+          <Button size="small" @click="selectAllFields">全选</Button>
+          <Button size="small" @click="clearSelectedFields">取消全选</Button>
+        </div>
+        <div class="field-selection-table">
+          <Table
+            :columns="fieldSelectionColumns"
+            :data-source="availableFields"
+            :pagination="false"
+            :scroll="{ y: 300 }"
+            row-key="id"
+          >
+            <template #bodyCell="{ record, column }">
+              <template v-if="column.key === 'select'">
+                <a-checkbox 
+                  :checked="isFieldSelectedInModal(record.id)"
+                  @change="toggleFieldSelectionInModal(record)"
+                />
+              </template>
+              <template v-if="column.key === 'field_name_zh'">
+                <span>{{ record.field_name_zh || record.field_name_en }}</span>
+              </template>
+              <template v-if="column.key === 'field_name_en'">
+                <code>{{ record.field_name_en }}</code>
+              </template>
+              <template v-if="column.key === 'field_type'">
+                <a-tag :color="getFieldTypeColor(record.field_type)">
+                  {{ getFieldTypeName(record.field_type) }}
+                </a-tag>
+              </template>
+              <template v-if="column.key === 'actions'">
+                <Button 
+                  size="small" 
+                  type="primary" 
+                  @click="addFieldDirectly(record)"
+                  :disabled="isFieldSelected(record.id)"
+                >
+                  添加
+                </Button>
+              </template>
+            </template>
+          </Table>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch, nextTick } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick, computed } from 'vue'
 import { message, Button, Input, Select, Table, Form, Space, Dropdown, Menu, Modal, Tree } from 'ant-design-vue'
 import { SearchOutlined, DownOutlined } from '@ant-design/icons-vue'
 import request from '@/utils/request'
@@ -485,53 +592,70 @@ const selectedFieldKeys = ref([])
 // 可用字段列表
 const availableFields = ref([])
 
+// 字段选择弹窗
+const fieldSelectionModalVisible = ref(false)
+const selectedFieldsForAdd = ref([])
+
 // 显示字段表格列配置
-const displayFieldsColumns = [
+const displayFieldColumns = [
   {
     title: '字段名称',
     dataIndex: 'label',
     key: 'label',
-    width: 200
+    width: 200,
+    ellipsis: true
+  },
+  {
+    title: '排序',
+    dataIndex: 'sort',
+    key: 'sort',
+    width: 80,
+    align: 'center'
   },
   {
     title: '操作',
     key: 'actions',
-    width: 100,
-    fixed: 'right'
+    width: 120,
+    fixed: 'right',
+    align: 'center'
   }
 ]
 
 // 字段选择表格列配置
-const fieldTableColumns = [
+const fieldSelectionColumns = [
   {
-    title: '选择',
+    title: '',
     key: 'select',
-    width: 60,
+    width: 40,
     fixed: 'left'
   },
   {
-    title: '字段名称',
-    dataIndex: 'fieldName',
-    key: 'fieldName',
+    title: '字段中文名',
+    dataIndex: 'field_name_zh',
+    key: 'field_name_zh',
+    width: 150,
     ellipsis: true
   },
   {
-    title: '类型',
-    dataIndex: 'type',
-    key: 'type',
+    title: '字段英文名',
+    dataIndex: 'field_name_en',
+    key: 'field_name_en',
+    width: 150,
+    ellipsis: true
+  },
+  {
+    title: '字段类型',
+    dataIndex: 'field_type',
+    key: 'field_type',
     width: 100,
-    customRender: (text) => {
-      return text === 'current' ? '当前对象' : '外键对象'
-    }
+    align: 'center'
   },
   {
     title: '操作',
     key: 'actions',
     width: 80,
     fixed: 'right',
-    scopedSlots: {
-      customRender: 'action'
-    }
+    align: 'center'
   }
 ]
 
@@ -599,8 +723,108 @@ const buildFieldTreeData = (fields) => {
   fieldTreeData.value = treeData
 }
 
+// 计算显示字段的表格行数（每行5个字段，至少显示5行）
+const displayFieldRows = computed(() => {
+  const fields = pageSettingForm.displayFields
+  const rows = []
+  const colsPerRow = 5
+  const minRows = 5
+  const totalCells = Math.max(fields.length, minRows * colsPerRow)
+  
+  for (let i = 0; i < totalCells; i += colsPerRow) {
+    const row = []
+    for (let j = 0; j < colsPerRow; j++) {
+      const index = i + j
+      row.push(index < fields.length ? fields[index] : null)
+    }
+    rows.push(row)
+  }
+  
+  return rows
+})
+
+// 根据行列索引获取字段在数组中的实际索引
+const getFieldIndex = (rowIndex, colIndex) => {
+  return rowIndex * 5 + colIndex
+}
+
+// 计算可用字段的表格行数（每行5个字段）
+const availableFieldRows = computed(() => {
+  const fields = availableFields.value
+  const rows = []
+  const colsPerRow = 5
+  
+  for (let i = 0; i < fields.length; i += colsPerRow) {
+    const row = []
+    for (let j = 0; j < colsPerRow; j++) {
+      const index = i + j
+      row.push(index < fields.length ? fields[index] : null)
+    }
+    rows.push(row)
+  }
+  
+  return rows
+})
+
 // 当前操作的页面记录
 const currentRecord = ref(null)
+
+// 拖拽相关状态
+const draggingField = ref(null)
+const isDropTarget = ref(false)
+const dropPosition = ref({ rowIndex: -1, colIndex: -1 })
+
+// 开始拖拽
+const handleDragStart = (event, field) => {
+  draggingField.value = field
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('text/plain', JSON.stringify(field))
+}
+
+// 拖拽结束
+const handleDragEnd = () => {
+  draggingField.value = null
+  isDropTarget.value = false
+  dropPosition.value = { rowIndex: -1, colIndex: -1 }
+}
+
+// 单元格拖拽经过
+const handleCellDragOver = (rowIndex, colIndex, event) => {
+  event.preventDefault()
+  event.dataTransfer.dropEffect = 'copy'
+  isDropTarget.value = true
+  dropPosition.value = { rowIndex, colIndex }
+}
+
+// 拖拽离开
+const handleCellDragLeave = () => {
+  isDropTarget.value = false
+  dropPosition.value = { rowIndex: -1, colIndex: -1 }
+}
+
+// 单元格放置
+const handleCellDrop = (rowIndex, colIndex, event) => {
+  event.preventDefault()
+  isDropTarget.value = false
+  dropPosition.value = { rowIndex: -1, colIndex: -1 }
+  
+  if (draggingField.value) {
+    const field = draggingField.value
+    // 检查字段是否已存在
+    const exists = pageSettingForm.displayFields.some(f => f.fieldId === field.id)
+    if (!exists) {
+      const targetIndex = rowIndex * 5 + colIndex
+      // 如果目标位置已有字段，插入到该位置
+      pageSettingForm.displayFields.splice(targetIndex, 0, {
+        fieldId: field.id,
+        fieldName: field.field_name_en,
+        label: field.field_name_zh || field.field_name_en,
+        sort: targetIndex + 1
+      })
+    }
+    draggingField.value = null
+  }
+}
 
 // 获取对象列表
 const getObjects = async () => {
@@ -778,11 +1002,37 @@ const handleEditCancel = () => {
 }
 
 // 页面设置
-const handlePageSetting = (record) => {
+const handlePageSetting = async (record) => {
   currentRecord.value = record
+  // 清空之前的显示字段配置
+  pageSettingForm.displayFields = []
+  
   // 根据页面关联的对象获取字段列表
   if (record.objectId) {
-    getObjectFields(record.objectId)
+    await getObjectFields(record.objectId)
+    console.log('Available fields:', availableFields.value)
+    
+    // 默认添加ID字段到显示字段列表
+    const hasIdField = pageSettingForm.displayFields.some(f => f.fieldName === 'id' || f.fieldId === 'id')
+    if (!hasIdField) {
+      pageSettingForm.displayFields.push({
+        fieldId: 'id',
+        fieldName: 'id',
+        label: 'ID',
+        sort: 1
+      })
+    }
+  } else {
+    console.warn('No objectId found for record:', record)
+    message.warning('该页面未关联对象，请先编辑页面关联对象')
+    
+    // 如果没有对象，也默认添加ID字段
+    pageSettingForm.displayFields.push({
+      fieldId: 'id',
+      fieldName: 'id',
+      label: 'ID',
+      sort: 1
+    })
   }
   pageSettingModalVisible.value = true
 }
@@ -832,10 +1082,82 @@ const handlePageSettingCancel = () => {
   pageSettingModalVisible.value = false
 }
 
-// 打开字段选择区
-const openFieldSelection = () => {
-  // 这里可以添加实际的打开字段选择区逻辑
-  message.info('打开字段选择区')
+// 打开字段选择弹窗
+const openFieldSelectionModal = () => {
+  // 初始化选中状态
+  selectedFieldsForAdd.value = []
+  fieldSelectionModalVisible.value = true
+}
+
+// 判断字段在弹窗中是否被选中
+const isFieldSelectedInModal = (fieldId) => {
+  return selectedFieldsForAdd.value.includes(fieldId)
+}
+
+// 切换弹窗中的字段选择
+const toggleFieldSelectionInModal = (record) => {
+  const index = selectedFieldsForAdd.value.indexOf(record.id)
+  if (index > -1) {
+    selectedFieldsForAdd.value.splice(index, 1)
+  } else {
+    selectedFieldsForAdd.value.push(record.id)
+  }
+}
+
+// 全选字段
+const selectAllFields = () => {
+  selectedFieldsForAdd.value = availableFields.value
+    .filter(field => !isFieldSelected(field.id))
+    .map(field => field.id)
+}
+
+// 取消全选
+const clearSelectedFields = () => {
+  selectedFieldsForAdd.value = []
+}
+
+// 直接添加字段（不通过弹窗确认）
+const addFieldDirectly = (record) => {
+  if (!isFieldSelected(record.id)) {
+    pageSettingForm.displayFields.push({
+      fieldId: record.id,
+      fieldName: record.field_name_en,
+      label: record.field_name_zh || record.field_name_en,
+      sort: pageSettingForm.displayFields.length + 1
+    })
+    // 从弹窗选中列表中移除
+    const index = selectedFieldsForAdd.value.indexOf(record.id)
+    if (index > -1) {
+      selectedFieldsForAdd.value.splice(index, 1)
+    }
+    message.success('字段添加成功')
+  }
+}
+
+// 字段选择弹窗确认
+const handleFieldSelectionOk = () => {
+  selectedFieldsForAdd.value.forEach(fieldId => {
+    if (!isFieldSelected(fieldId)) {
+      const field = availableFields.value.find(f => f.id === fieldId)
+      if (field) {
+        pageSettingForm.displayFields.push({
+          fieldId: field.id,
+          fieldName: field.field_name_en,
+          label: field.field_name_zh || field.field_name_en,
+          sort: pageSettingForm.displayFields.length + 1
+        })
+      }
+    }
+  })
+  fieldSelectionModalVisible.value = false
+  selectedFieldsForAdd.value = []
+  message.success('字段添加成功')
+}
+
+// 字段选择弹窗取消
+const handleFieldSelectionCancel = () => {
+  fieldSelectionModalVisible.value = false
+  selectedFieldsForAdd.value = []
 }
 
 // 处理字段选择
@@ -858,6 +1180,100 @@ const handleFieldCheck = (checkedKeys, info) => {
 // 移除显示字段
 const removeDisplayField = (index) => {
   pageSettingForm.displayFields.splice(index, 1)
+}
+
+// 判断字段是否已选中
+const isFieldSelected = (fieldId) => {
+  return pageSettingForm.displayFields.some(field => field.fieldId === fieldId)
+}
+
+// 切换字段选择
+const toggleFieldSelection = (record) => {
+  const index = pageSettingForm.displayFields.findIndex(field => field.fieldId === record.id)
+  if (index > -1) {
+    pageSettingForm.displayFields.splice(index, 1)
+  } else {
+    pageSettingForm.displayFields.push({
+      fieldId: record.id,
+      fieldName: record.field_name_en,
+      label: record.field_name_zh || record.field_name_en,
+      sort: pageSettingForm.displayFields.length + 1
+    })
+  }
+}
+
+// 添加单个字段
+const addSingleField = (record) => {
+  if (!isFieldSelected(record.id)) {
+    pageSettingForm.displayFields.push({
+      fieldId: record.id,
+      fieldName: record.field_name_en,
+      label: record.field_name_zh || record.field_name_en,
+      sort: pageSettingForm.displayFields.length + 1
+    })
+  }
+}
+
+// 上移字段
+const moveFieldUp = (index) => {
+  if (index > 0) {
+    const temp = pageSettingForm.displayFields[index]
+    pageSettingForm.displayFields[index] = pageSettingForm.displayFields[index - 1]
+    pageSettingForm.displayFields[index - 1] = temp
+    // 更新排序
+    pageSettingForm.displayFields.forEach((field, i) => {
+      field.sort = i + 1
+    })
+  }
+}
+
+// 下移字段
+const moveFieldDown = (index) => {
+  if (index < pageSettingForm.displayFields.length - 1) {
+    const temp = pageSettingForm.displayFields[index]
+    pageSettingForm.displayFields[index] = pageSettingForm.displayFields[index + 1]
+    pageSettingForm.displayFields[index + 1] = temp
+    // 更新排序
+    pageSettingForm.displayFields.forEach((field, i) => {
+      field.sort = i + 1
+    })
+  }
+}
+
+// 获取字段类型颜色
+const getFieldTypeColor = (type) => {
+  const colors = {
+    'string': 'blue',
+    'text': 'cyan',
+    'integer': 'green',
+    'float': 'purple',
+    'datetime': 'orange',
+    'date': 'orange',
+    'boolean': 'red',
+    'select': 'geekblue',
+    'textarea': 'gold',
+    'image': 'pink',
+    'file': 'magenta'
+  }
+  return colors[type] || 'default'
+}
+
+// 获取字段类型名称
+const getFieldTypeName = (type) => {
+  const names = {
+    'string': '字符串',
+    'text': '文本',
+    'integer': '整数',
+    'float': '浮点数',
+    'datetime': '日期时间',
+    'date': '日期',
+    'boolean': '布尔值',
+    'select': '下拉选择',
+    'textarea': '多行文本',
+    'image': '图片',
+    'file': '文件'
+  }
+  return names[type] || type
 }
 
 // 清空显示字段
@@ -1209,6 +1625,138 @@ onMounted(() => {
 .field-selection h4 {
   margin-bottom: 8px;
   color: #333;
+}
+
+/* 字段选择弹窗样式 */
+.field-selection-modal {
+  padding: 8px;
+}
+
+.field-selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.field-selection-header span {
+  font-weight: 600;
+  color: #333;
+}
+
+.field-selection-table {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+}
+
+.field-display-table {
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #d9d9d9;
+}
+
+/* 字段网格表格样式 */
+.field-grid-container {
+  margin-top: 8px;
+}
+
+.field-grid-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e8e8e8;
+  background: #fff;
+}
+
+.field-grid-table th {
+  background: #f5f7fa;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  color: #666;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.field-grid-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e8e8e8;
+  border-right: 1px solid #e8e8e8;
+  vertical-align: middle;
+  text-align: left;
+}
+
+.field-grid-table td:last-child {
+  border-right: none;
+}
+
+.field-grid-table tr:last-child td {
+  border-bottom: none;
+}
+
+.field-cell {
+  min-width: 140px;
+}
+
+/* 字段标签样式 */
+.field-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: #1890ff;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.field-tag-close {
+  margin-left: 6px;
+  cursor: pointer;
+  color: #fff;
+  font-size: 16px;
+  font-weight: bold;
+  opacity: 0.8;
+}
+
+.field-tag-close:hover {
+  opacity: 1;
+}
+
+/* 字段复选框样式 */
+.field-checkbox {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+}
+
+.field-checkbox input[type="checkbox"] {
+  margin-right: 6px;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.field-checkbox span {
+  user-select: none;
+}
+
+/* 字段选择表格样式 */
+.field-selection-grid td {
+  background: #fff;
+}
+
+.field-selection-grid tr:hover td {
+  background: #f5f7fa;
+}
+
+.empty-cell {
+  text-align: center;
+  color: #999;
+  padding: 20px;
 }
 
 /* 响应式调整 */

@@ -8,8 +8,13 @@ use think\response\Json;
 class ObjectField extends BaseController
 {
     // 获取对象字段列表
-    public function list($object_id): Json
+    public function list($object_id = null): Json
     {
+        // 如果没有路径参数，尝试从查询参数获取
+        if ($object_id === null) {
+            $object_id = $this->request->param('object_id', '', 'trim');
+        }
+        
         $fields = Db::table('object_fields')
             ->where('object_id', $object_id)
             ->order('created_at', 'asc')

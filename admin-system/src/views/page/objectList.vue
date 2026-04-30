@@ -1,22 +1,66 @@
 <template>
   <div class="object-list-container">
-    <div class="list-header">
-      <h2>{{ pageTitle }}</h2>
-    </div>
-    
-    <div class="search-bar" v-if="showSearch">
+    <!-- 搜索栏 -->
+    <div class="search-bar" v-if="showSearch && searchFields.length > 0">
+      <div class="search-header">
+        <span class="search-title">搜索条件</span>
+        <div class="header-actions">
+          <Button type="primary" size="small" @click="handleAdd">
+            <PlusOutlined /> 新增
+          </Button>
+          <Button size="small" @click="handleRefresh">
+            <ReloadOutlined /> 刷新
+          </Button>
+          <Button size="small" @click="resetSearch">清空</Button>
+          <Button size="small" @click="openSearchSetting">设置动态查询条件</Button>
+        </div>
+      </div>
       <Form layout="inline" :model="searchForm">
-        <Form.Item label="搜索">
-          <Input v-model:value="searchForm.keyword" placeholder="请输入搜索关键字" @pressEnter="handleSearch" />
-        </Form.Item>
+        <template v-for="(field, index) in searchFields" :key="field.fieldName">
+          <Form.Item :label="field.label">
+            <div class="search-item">
+              <Select 
+                v-model:value="searchConditions[index].operator" 
+                style="width: 80px" 
+                size="small"
+              >
+                <Select.Option value="like">包含</Select.Option>
+                <Select.Option value="=">等于</Select.Option>
+                <Select.Option value="!=">不等于</Select.Option>
+                <Select.Option value=">">大于</Select.Option>
+                <Select.Option value="<">小于</Select.Option>
+                <Select.Option value=">=">大于等于</Select.Option>
+                <Select.Option value="<=">小于等于</Select.Option>
+              </Select>
+              <Input 
+                v-model:value="searchForm[field.fieldName]" 
+                :placeholder="`请输入${field.label}`" 
+                @pressEnter="handleSearch" 
+                style="width: 150px"
+                size="small"
+              />
+            </div>
+          </Form.Item>
+        </template>
         <Form.Item>
-          <Button type="primary" @click="handleSearch">
+          <Button type="primary" size="small" @click="handleSearch">
             <SearchOutlined /> 搜索
           </Button>
         </Form.Item>
       </Form>
     </div>
 
+    <!-- 操作按钮栏（当没有搜索栏时显示） -->
+    <div class="action-bar" v-if="showActions && (!showSearch || searchFields.length === 0)">
+      <Button type="primary" @click="handleAdd">
+        <PlusOutlined /> 新增
+      </Button>
+      <Button @click="handleRefresh">
+        <ReloadOutlined /> 刷新
+      </Button>
+    </div>
+
+    <!-- 数据表格 -->
     <div class="table-container">
       <Table
         :columns="columns"
@@ -28,36 +72,145 @@
       >
         <template #bodyCell="{ record, column }">
           <template v-if="column.key === 'actions'">
-            <Button size="small" type="primary" @click="handleView(record)">
-              查看
-            </Button>
+            <a-space size="small">
+              <Button size="small" type="primary" @click="handleView(record)">
+                <EyeOutlined /> 查看
+              </Button>
+              <Button size="small" @click="handleEdit(record)">
+                <EditOutlined /> 编辑
+              </Button>
+              <Button size="small" danger @click="handleDelete(record)">
+                <DeleteOutlined /> 删除
+              </Button>
+            </a-space>
+          </template>
+          <template v-else-if="column.key === 'status'">
+            <a-tag :color="record.status === 'active' ? 'green' : 'red'">
+              {{ record.status === 'active' ? '启用' : '禁用' }}
+            </a-tag>
+          </template>
+          <template v-else>
+            {{ record[column.dataIndex] !== undefined && record[column.dataIndex] !== null ? record[column.dataIndex] : '-' }}
           </template>
         </template>
       </Table>
     </div>
+
+    <!-- 编辑/新增弹窗 -->
+    <a-modal
+      v-model:visible="modalVisible"
+      :title="modalTitle"
+      width="600px"
+      @ok="handleModalOk"
+      @cancel="handleModalCancel"
+    >
+      <a-form :model="formData" :rules="formRules" ref="formRef">
+        <a-form-item 
+          v-for="field in formFields" 
+          :key="field.fieldName" 
+          :label="field.label" 
+          :name="field.fieldName"
+          :required="field.required"
+        >
+          <a-input 
+            v-model:value="formData[field.fieldName]" 
+            :placeholder="`请输入${field.label}`" 
+            :disabled="field.disabled"
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <!-- 搜索设置弹窗 -->
+    <a-modal
+      title="搜索设置"
+      v-model:visible="showSearchSetting"
+      width="500px"
+      :footer="null"
+    >
+      <div class="search-setting">
+        <div class="setting-section">
+          <div class="section-header">
+            <h4>选择搜索字段</h4>
+            <div class="section-actions">
+              <a-button size="small" @click="selectAllFields">全选</a-button>
+              <a-button size="small" @click="deselectAllFields">取消</a-button>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div 
+              v-for="field in availableSearchFields" 
+              :key="field.field_name_en"
+              class="field-item"
+            >
+              <label class="field-checkbox">
+                <input 
+                  type="checkbox" 
+                  :checked="isSearchFieldSelected(field.field_name_en)"
+                  @change="toggleSearchField(field)"
+                />
+                <span class="field-label">{{ field.field_name_zh || field.field_name_en }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="setting-footer">
+          <a-button size="small" @click="showSearchSetting = false">取消</a-button>
+          <a-button type="primary" size="small" @click="handleSearchSettingOk">保存</a-button>
+        </div>
+      </div>
+    </a-modal>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { Table, Button, Input, Form, message } from 'ant-design-vue'
-import { SearchOutlined } from '@ant-design/icons-vue'
-import request from '@/utils/request'
+import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { Table, Button, Input, Form, Select, message, Modal } from 'ant-design-vue';
+import { SearchOutlined, PlusOutlined, ReloadOutlined, EyeOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons-vue';
+import request from '@/utils/request';
 
-const route = useRoute()
-const objectId = ref('')
+const route = useRoute();
 
-const pageTitle = ref('列表页面')
-const columns = ref([])
-const data = ref([])
-const loading = ref(false)
-const showSearch = ref(true)
+// 当前栏目ID
+const menuId = ref('');
+// 当前页面ID（栏目关联的页面）
+const pageId = ref('');
+// 当前对象ID（页面关联的对象）
+const objectId = ref('');
+// 页面标题
+const pageTitle = ref('列表页面');
+// 表格列配置
+const columns = ref([]);
+// 数据列表
+const data = ref([]);
+// 加载状态
+const loading = ref(false);
+// 是否显示搜索栏
+const showSearch = ref(true);
+// 是否显示操作按钮
+const showActions = ref(true);
+// 搜索字段配置
+const searchFields = ref([]);
+// 搜索条件操作符
+const searchConditions = ref([]);
+// 表单字段配置
+const formFields = ref([]);
+// 搜索设置弹窗
+const showSearchSetting = ref(false);
+// 可用字段列表（用于搜索设置）
+const availableSearchFields = ref([]);
+// 已选搜索字段
+const selectedSearchFields = ref([]);
 
-const searchForm = reactive({
-  keyword: ''
-})
+// 弹窗状态
+const modalVisible = ref(false);
+const modalTitle = ref('');
+const formRef = ref(null);
+const formData = reactive({});
+const formRules = reactive({});
 
+// 分页配置
 const pagination = reactive({
   current: 1,
   pageSize: 10,
@@ -65,7 +218,7 @@ const pagination = reactive({
   showSizeChanger: true,
   showQuickJumper: true,
   showTotal: (total) => `共 ${total} 条记录`
-})
+});
 
 const paginationConfig = computed(() => ({
   current: pagination.current,
@@ -74,86 +227,505 @@ const paginationConfig = computed(() => ({
   showSizeChanger: pagination.showSizeChanger,
   showQuickJumper: pagination.showQuickJumper,
   showTotal: pagination.showTotal
-}))
+}));
 
-const getPageSetting = async (id) => {
+// 获取栏目信息
+const getMenuInfo = async (id) => {
   try {
-    const response = await request.get('/api/page/setting', {
-      params: { object_id: id }
-    })
-    if (response.code === 200) {
-      const setting = response.data
-      pageTitle.value = setting.page_name || '列表页面'
-      
-      if (setting.display_fields && setting.display_fields.length > 0) {
-        columns.value = setting.display_fields.map(field => ({
-          title: field.label,
-          dataIndex: field.fieldName,
-          key: field.fieldName
-        }))
+    console.log('获取栏目信息, menuId:', id);
+    const response = await request.get('/api/menu/list', {
+      params: { id }
+    });
+    console.log('栏目信息响应:', response);
+    if (response.code === 200 && response.data.length > 0) {
+      const menu = response.data[0];
+      pageTitle.value = menu.name || '列表页面';
+      console.log('当前栏目:', menu.name, 'page_id:', menu.page_id, 'object_id:', menu.object_id);
+      // 如果栏目关联了页面，获取页面信息
+      if (menu.page_id) {
+        pageId.value = menu.page_id;
+        await getPageInfo(menu.page_id);
+      } else if (menu.object_id) {
+        // 如果栏目直接关联了对象，直接获取对象信息
+        objectId.value = menu.object_id;
+        await getObjectInfo(menu.object_id);
       } else {
-        columns.value = []
+        console.log('栏目没有关联页面或对象');
+        message.warning('该栏目没有关联页面或对象，请先配置');
       }
-      
-      columns.value.push({
-        title: '操作',
-        key: 'actions',
-        width: 150,
-        fixed: 'right'
-      })
-    }
-  } catch (error) {
-    console.error('获取页面设置失败:', error)
-    message.error('获取页面设置失败')
-  }
-}
-
-const getListData = async (id) => {
-  loading.value = true
-  try {
-    const response = await request.get('/api/object/data', {
-      params: {
-        object_id: id,
-        page: pagination.current,
-        page_size: pagination.pageSize
-      }
-    })
-    if (response.code === 200) {
-      data.value = response.data.list || []
-      pagination.total = response.data.total || 0
     } else {
-      message.error(response.message || '获取列表数据失败')
+      console.log('未找到栏目信息');
+      message.error('未找到栏目信息');
     }
   } catch (error) {
-    console.error('获取列表数据失败:', error)
-    message.error('获取列表数据失败')
-  } finally {
-    loading.value = false
+    console.error('获取栏目信息失败:', error);
+    message.error('获取栏目信息失败');
   }
-}
+};
 
+// 获取页面信息
+const getPageInfo = async (id) => {
+  try {
+    console.log('获取页面信息, pageId:', id);
+    const response = await request.get('/api/page/list', {
+      params: { id }
+    });
+    console.log('页面信息响应:', response);
+    if (response.code === 200 && response.data.length > 0) {
+      const page = response.data[0];
+      console.log('当前页面:', page.pageName, 'object_id:', page.object_id);
+      // 如果页面关联了对象，获取对象信息
+      if (page.object_id) {
+        objectId.value = page.object_id;
+        // 获取页面配置
+        await getPageSettings(page.id);
+        // 获取对象信息（用于获取字段定义）
+        await getObjectInfo(page.object_id);
+      } else {
+        console.log('页面没有关联对象');
+        message.warning('该页面没有关联对象，请先配置对象');
+      }
+    }
+  } catch (error) {
+    console.error('获取页面信息失败:', error);
+    message.error('获取页面信息失败');
+  }
+};
+
+// 获取页面设置
+const getPageSettings = async (pageId) => {
+  try {
+    console.log('获取页面设置, pageId:', pageId);
+    const response = await request.get('/api/page/setting', {
+      params: { page_id: pageId }
+    });
+    console.log('页面设置响应:', response);
+    if (response.code === 200 && response.data) {
+      const setting = response.data;
+      // 解析 display_fields
+      if (setting.display_fields) {
+        try {
+          const displayFields = typeof setting.display_fields === 'string' 
+            ? JSON.parse(setting.display_fields) 
+            : setting.display_fields;
+          console.log('解析的display_fields:', displayFields);
+          // 根据配置的字段构建表格列
+          buildColumnsFromDisplayFields(displayFields);
+        } catch (error) {
+          console.error('解析 display_fields 失败:', error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取页面设置失败:', error);
+  }
+};
+
+// 根据配置的显示字段构建表格列
+const buildColumnsFromDisplayFields = (displayFields) => {
+  console.log(displayFields,11111111111);
+  if (!displayFields || displayFields.length === 0) {
+    console.log('displayFields为空');
+    return;
+  }
+  
+  console.log('构建表格列:', displayFields);
+  // 根据配置的字段顺序构建列
+  columns.value = displayFields.map(field => ({
+    title: field.label || field.fieldName,
+    dataIndex: field.fieldName || field.field_name_en,
+    key: field.fieldName || field.field_name_en,
+    ellipsis: true
+  }));
+  
+  // 添加操作列
+  columns.value.push({
+    title: '操作',
+    key: 'actions',
+    width: 280,
+    fixed: 'right'
+  });
+  
+  // 构建搜索字段（取前 3 个字段作为搜索条件）
+  searchFields.value = displayFields.slice(0, 3).map(field => ({
+    fieldName: field.fieldName || field.field_name_en,
+    label: field.label || field.field_name_zh
+  }));
+  
+  // 初始化搜索条件操作符
+  searchConditions.value = searchFields.value.map(() => ({ operator: 'like' }));
+  
+  // 构建表单字段
+  formFields.value = displayFields.map(field => ({
+    fieldName: field.fieldName || field.field_name_en,
+    label: field.label || field.field_name_zh,
+    required: false,
+    disabled: false
+  }));
+  
+  // 初始化搜索表单
+  searchFields.value.forEach(field => {
+    if (!searchForm[field.fieldName]) {
+      searchForm[field.fieldName] = '';
+    }
+  });
+};
+
+// 获取对象信息
+const getObjectInfo = async (id) => {
+  try {
+    console.log('获取对象信息, objectId:', id);
+    const response = await request.get(`/api/object/get/${id}`);
+    console.log('对象信息响应:', response);
+    if (response.code === 200) {
+      const object = response.data;
+      console.log('当前对象:', object.name_en);
+      // 获取对象字段列表（如果失败也继续获取数据）
+      try {
+        await getObjectFields(object.object_id);
+      } catch (e) {
+        console.error('获取对象字段失败:', e);
+      }
+      // 获取列表数据
+      getListData(object.object_id);
+    }
+  } catch (error) {
+    console.error('获取对象信息失败:', error);
+    message.error('获取对象信息失败');
+  }
+};
+
+// 获取对象字段列表（仅在没有页面配置时使用）
+const getObjectFields = async (objectId) => {
+  try {
+    const response = await request.get(`/api/object-field/list/${objectId}`);
+    if (response.code === 200) {
+      const fields = response.data;
+      // 只有在 columns 为空时才使用对象的所有字段（即没有页面配置时）
+      if (columns.value.length === 0) {
+        console.log('使用对象字段作为默认列');
+        // 构建表格列，默认先添加ID列
+        columns.value = [{
+          title: 'ID',
+          dataIndex: 'id',
+          key: 'id',
+          ellipsis: true
+        }];
+        
+        // 添加其他字段（排除ID，避免重复）
+        const otherFields = fields.filter(field => field.field_name_en !== 'id');
+        otherFields.forEach(field => {
+          columns.value.push({
+            title: field.field_name_zh || field.field_name_en,
+            dataIndex: field.field_name_en,
+            key: field.field_name_en,
+            ellipsis: true
+          });
+        });
+        
+        // 添加操作列
+        columns.value.push({
+          title: '操作',
+          key: 'actions',
+          width: 280,
+          fixed: 'right'
+        });
+        // 构建搜索字段（取前 3 个字段作为搜索条件）
+        searchFields.value = fields.slice(0, 3).map(field => ({
+          fieldName: field.field_name_en,
+          label: field.field_name_zh || field.field_name_en
+        }));
+        // 初始化搜索条件操作符
+        searchConditions.value = searchFields.value.map(() => ({ operator: 'like' }));
+        // 构建表单字段
+        formFields.value = fields.map(field => ({
+          fieldName: field.field_name_en,
+          label: field.field_name_zh || field.field_name_en,
+          required: false,
+          disabled: false
+        }));
+        // 初始化搜索表单
+        searchFields.value.forEach(field => {
+          if (!searchForm[field.fieldName]) {
+            searchForm[field.fieldName] = '';
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('获取对象字段失败:', error);
+  }
+};
+
+// 获取列表数据
+const getListData = async (objId) => {
+  if (!objId) {
+    console.log('objectId为空，无法获取数据');
+    return;
+  }
+  
+  loading.value = true;
+  try {
+    console.log('获取列表数据, object_id:', objId);
+    const params = {
+      object_id: objId,
+      page: pagination.current,
+      page_size: pagination.pageSize
+    };
+    // 添加搜索条件
+    searchFields.value.forEach(field => {
+      if (searchForm[field.fieldName]) {
+        params[field.fieldName] = searchForm[field.fieldName];
+      }
+    });
+    console.log('请求参数:', params);
+    const response = await request.get('/api/object/data', { params });
+    console.log('列表数据响应:', response);
+    if (response.code === 200) {
+      data.value = response.data.list || response.data || [];
+      pagination.total = response.data.total || data.value.length;
+      console.log('获取到的数据:', data.value.length, '条');
+    } else {
+      message.error(response.message || '获取列表数据失败');
+    }
+  } catch (error) {
+    console.error('获取列表数据失败:', error);
+    message.error('获取列表数据失败');
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 搜索表单
+const searchForm = reactive({});
+
+// 搜索
 const handleSearch = () => {
-  pagination.current = 1
-  getListData(objectId.value)
-}
+  if (!objectId.value) {
+    message.warning('请先选择一个栏目');
+    return;
+  }
+  pagination.current = 1;
+  getListData(objectId.value);
+};
 
+// 重置搜索
+const resetSearch = () => {
+  searchFields.value.forEach(field => {
+    searchForm[field.fieldName] = '';
+  });
+  pagination.current = 1;
+  getListData(objectId.value);
+};
+
+// 判断字段是否已选作为搜索字段
+const isSearchFieldSelected = (fieldName) => {
+  return selectedSearchFields.value.some(f => f.fieldName === fieldName);
+};
+
+// 切换搜索字段选择
+const toggleSearchField = (field) => {
+  const index = selectedSearchFields.value.findIndex(f => f.fieldName === field.field_name_en);
+  if (index > -1) {
+    selectedSearchFields.value.splice(index, 1);
+  } else {
+    selectedSearchFields.value.push({
+      fieldName: field.field_name_en,
+      label: field.field_name_zh || field.field_name_en
+    });
+  }
+};
+
+// 全选字段
+const selectAllFields = () => {
+  availableSearchFields.value.forEach(field => {
+    if (!isSearchFieldSelected(field.field_name_en)) {
+      selectedSearchFields.value.push({
+        fieldName: field.field_name_en,
+        label: field.field_name_zh || field.field_name_en
+      });
+    }
+  });
+};
+
+// 取消全选
+const deselectAllFields = () => {
+  selectedSearchFields.value = [];
+};
+
+// 打开搜索设置弹窗
+const openSearchSetting = async () => {
+  if (objectId.value) {
+    try {
+      const response = await request.get(`/api/object-field/list/${objectId.value}`);
+      if (response.code === 200) {
+        availableSearchFields.value = response.data;
+        // 初始化已选字段为当前搜索字段
+        selectedSearchFields.value = [...searchFields.value];
+        showSearchSetting.value = true;
+      }
+    } catch (error) {
+      console.error('获取字段失败:', error);
+      message.error('获取字段失败');
+    }
+  } else {
+    message.warning('请先选择一个栏目');
+  }
+};
+
+// 保存搜索设置
+const handleSearchSettingOk = async () => {
+  if (selectedSearchFields.value.length > 0) {
+    searchFields.value = [...selectedSearchFields.value];
+    searchConditions.value = searchFields.value.map(() => ({ operator: 'like' }));
+    // 初始化新的搜索表单字段
+    searchFields.value.forEach(field => {
+      if (!searchForm[field.fieldName]) {
+        searchForm[field.fieldName] = '';
+      }
+    });
+    message.success('搜索条件设置成功');
+  } else {
+    message.warning('请至少选择一个搜索字段');
+    return;
+  }
+  showSearchSetting.value = false;
+};
+
+// 分页变化
 const handleTableChange = (pag) => {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
-  getListData(objectId.value)
-}
+  pagination.current = pag.current;
+  pagination.pageSize = pag.pageSize;
+  getListData(objectId.value);
+};
 
+// 刷新
+const handleRefresh = () => {
+  if (!objectId.value) {
+    message.warning('请先选择一个栏目');
+    return;
+  }
+  getListData(objectId.value);
+};
+
+// 查看详情
 const handleView = (record) => {
-  message.info('查看功能开发中')
-}
+  message.info(`查看记录: ${record.id}`);
+};
+
+// 编辑
+const handleEdit = (record) => {
+  modalTitle.value = '编辑记录';
+  modalVisible.value = true;
+  // 填充表单数据
+  formFields.value.forEach(field => {
+    formData[field.fieldName] = record[field.fieldName] || '';
+  });
+};
+
+// 新增
+const handleAdd = () => {
+  if (!objectId.value) {
+    message.warning('请先选择一个栏目');
+    return;
+  }
+  modalTitle.value = '新增记录';
+  modalVisible.value = true;
+  // 清空表单数据
+  formFields.value.forEach(field => {
+    formData[field.fieldName] = '';
+  });
+};
+
+// 删除
+const handleDelete = (record) => {
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除这条记录吗？`,
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        const response = await request.delete(`/api/object/data/${record.id}`);
+        if (response.code === 200) {
+          message.success('删除成功');
+          getListData(objectId.value);
+        } else {
+          message.error(response.message || '删除失败');
+        }
+      } catch (error) {
+        message.error('删除失败');
+      }
+    }
+  });
+};
+
+// 弹窗确认
+const handleModalOk = async () => {
+  if (formRef.value) {
+    try {
+      await formRef.value.validate();
+      // 提交数据
+      const response = await request.post('/api/object/data', {
+        object_id: objectId.value,
+        ...formData
+      });
+      if (response.code === 200) {
+        message.success(modalTitle.value.includes('新增') ? '新增成功' : '修改成功');
+        modalVisible.value = false;
+        getListData(objectId.value);
+      } else {
+        message.error(response.message || '操作失败');
+      }
+    } catch (error) {
+      console.error('表单验证失败:', error);
+    }
+  }
+};
+
+// 弹窗取消
+const handleModalCancel = () => {
+  modalVisible.value = false;
+};
+
+// 监听路由变化
+watch(() => route.params.menuId, (newMenuId) => {
+  if (newMenuId) {
+    console.log('路由变化，menuId:', newMenuId);
+    menuId.value = newMenuId;
+    initPage(newMenuId);
+  }
+});
+
+// 初始化页面
+const initPage = async (menuId) => {
+  console.log('初始化页面, menuId:', menuId);
+  // 重置状态
+  pageId.value = '';
+  objectId.value = '';
+  columns.value = [];
+  data.value = [];
+  searchFields.value = [];
+  formFields.value = [];
+  // 获取栏目信息
+  await getMenuInfo(menuId);
+};
 
 onMounted(() => {
-  objectId.value = route.params.objectId
-  if (objectId.value) {
-    getPageSetting(objectId.value)
-    getListData(objectId.value)
+  // 从路由或localStorage获取栏目ID
+  const menuIdFromRoute = route.params.menuId || route.params.objectId;
+  const menuIdFromStorage = localStorage.getItem('currentMenuId');
+  const currentMenuId = menuIdFromRoute || menuIdFromStorage;
+  
+  console.log('页面加载，获取到的menuId:', currentMenuId);
+  
+  if (currentMenuId) {
+    menuId.value = currentMenuId;
+    initPage(currentMenuId);
+    // 清除localStorage中的值
+    localStorage.removeItem('currentMenuId');
   }
-})
+});
 </script>
 
 <style scoped>
@@ -164,32 +736,54 @@ onMounted(() => {
 }
 
 .list-header {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   padding: 16px 24px;
   background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .list-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #1f2d3d;
+  color: #1f1f1f;
 }
 
 .search-bar {
   margin-bottom: 16px;
-  padding: 16px;
+  padding: 16px 24px;
   background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.action-bar {
+  margin-bottom: 16px;
 }
 
 .table-container {
   background: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.09);
-  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+:deep(.ant-table) {
+  border-radius: 8px;
+}
+
+:deep(.ant-table-thead > tr > th) {
+  background: #fafafa;
+  font-weight: 600;
+  color: #333;
+}
+
+:deep(.ant-table-tbody > tr:hover) {
+  background: #f5f5f5;
+}
+
+:deep(.ant-btn) {
+  margin-right: 8px;
 }
 </style>

@@ -138,7 +138,20 @@ const breadcrumbTitle = computed(() => {
 const userInfo = computed(() => userStore.userInfo)
 
 const handleMenuClick = (e) => {
-  router.push(e.key)
+  // 判断是否是动态栏目（key是数字ID）还是系统菜单（key是路由路径）
+  const isDynamicMenu = !isNaN(parseInt(e.key))
+  
+  let routePath = e.key
+  let tabKey = e.key
+  
+  if (isDynamicMenu) {
+    // 动态栏目，跳转到统一的列表页面，菜单ID通过localStorage传递
+    localStorage.setItem('currentMenuId', e.key)
+    routePath = '/page/list'
+    tabKey = '/page/list'
+  }
+  
+  router.push(routePath)
   
   // 查找菜单项的完整路径
   const findMenuItem = (menus, key) => {
@@ -157,10 +170,10 @@ const handleMenuClick = (e) => {
   const label = findMenuItem(menuItems.value, e.key) || e.key
   
   // 如果该标签已存在，不重复添加
-  const exists = fixedTabs.value.some(tab => tab.key === e.key)
+  const exists = fixedTabs.value.some(tab => tab.key === tabKey)
   if (!exists) {
     fixedTabs.value.push({
-      key: e.key,
+      key: tabKey,
       label: label
     })
   }
@@ -202,7 +215,9 @@ const fetchMenu = async () => {
           const isGarbled = /[\x00-\x1F\x7F-\xFF]/.test(menu.name) || menu.name.includes('乱码')
           // 过滤掉根级别的对象管理菜单项，只保留系统管理下的对象管理
           const isRootObjectManagement = menu.parent_id === 0 && menu.name === '对象管理'
-          return !isGarbled && !isRootObjectManagement
+          // 过滤掉内容管理、文章管理、分类管理栏目
+          const isContentMenu = ['内容管理', '文章管理', '分类管理'].includes(menu.name)
+          return !isGarbled && !isRootObjectManagement && !isContentMenu
         }).map(menu => {
           const menuItem = {
             key: menu.path || menu.id.toString(),

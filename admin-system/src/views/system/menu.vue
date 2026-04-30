@@ -738,6 +738,8 @@ export default defineComponent({
     const selectPage = (record) => {
       formData.path = record.id.toString()
       formData.page_name = record.name || record.page_name || '未知页面'
+      // 同时保存页面关联的对象ID
+      formData.object_id = record.object_id || ''
       pageSelectModalVisible.value = false
     }
 

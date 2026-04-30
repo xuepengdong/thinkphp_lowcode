@@ -63,13 +63,17 @@ class Menu extends BaseController
                 $children = $this->buildMenuTree($menus, $menu['id']);
                 $treeNode = [
                     'id' => $menu['id'],
+                    'key' => (string)$menu['id'],
                     'name' => $menu['name'],
+                    'label' => $menu['name'],
                     'path' => $menu['path'],
                     'parent_id' => $menu['parent_id'],
                     'object_id' => $menu['object_id'],
                     'type' => $menu['type'],
                     'sort' => $menu['sort'],
                     'status' => $menu['status'],
+                    'call_type' => isset($menu['call_type']) ? $menu['call_type'] : '',
+                    'page_name' => isset($menu['page_name']) ? $menu['page_name'] : '',
                     'children' => $children
                 ];
                 $tree[] = $treeNode;
@@ -132,7 +136,7 @@ class Menu extends BaseController
     public function create(): Json
     {
         $data = $this->request->only([
-            'name', 'path', 'parent_id', 'object_id', 'type', 'sort'
+            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'call_type', 'page_name'
         ]);
 
         $validate = $this->validate($data, [
@@ -164,7 +168,7 @@ class Menu extends BaseController
     public function update($id): Json
     {
         $data = $this->request->only([
-            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'status'
+            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'status', 'call_type', 'page_name'
         ]);
 
         $menu = Db::table('menus')->find($id);

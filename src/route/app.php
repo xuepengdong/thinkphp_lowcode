@@ -61,6 +61,7 @@ Route::group('api/object', function () {
 // 对象字段管理接口
 Route::group('api/object-field', function () {
     Route::get('list/:object_id', 'api.ObjectField/list')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::get('list', 'api.ObjectField/list')->middleware(\app\middleware\JwtMiddleware::class);
     Route::post('create', 'api.ObjectField/create')->middleware(\app\middleware\JwtMiddleware::class);
     Route::put('update/:id', 'api.ObjectField/update')->middleware(\app\middleware\JwtMiddleware::class);
     Route::delete('delete/:id', 'api.ObjectField/delete')->middleware(\app\middleware\JwtMiddleware::class);

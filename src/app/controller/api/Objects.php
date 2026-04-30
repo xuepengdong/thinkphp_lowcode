@@ -39,7 +39,13 @@ class Objects extends BaseController
     // 获取单个对象
     public function get($id): Json
     {
-        $object = Db::table('objects')->find($id);
+        // 先尝试按 object_id 字段查询
+        $object = Db::table('objects')->where('object_id', $id)->find();
+        // 如果没找到，再尝试按主键 id 查询
+        if (!$object) {
+            $object = Db::table('objects')->find($id);
+        }
+        
         if (!$object) {
             return json(['code' => 404, 'message' => '对象不存在']);
         }

@@ -100,16 +100,16 @@ const router = createRouter({
           meta: {
             title: '系统设置'
           }
+        },
+        {
+          path: 'page/list',
+          name: 'ObjectList',
+          component: () => import('@/views/page/objectList.vue'),
+          meta: {
+            title: '列表页面'
+          }
         }
       ]
-    },
-    {
-      path: '/page/:objectId/list',
-      name: 'ObjectList',
-      component: () => import('@/views/page/objectList.vue'),
-      meta: {
-        title: '对象列表'
-      }
     }
   ]
 })
