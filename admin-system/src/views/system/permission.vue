@@ -210,56 +210,6 @@ const mockPermissionData = [
     description: '删除用户权限',
     createTime: '2023-01-15 10:30:00'
   },
-  {
-    id: 6,
-    name: '文章管理',
-    code: 'article:manage',
-    type: 'menu',
-    parentId: null,
-    parentName: '-',
-    description: '文章管理模块访问权限',
-    createTime: '2023-02-20 14:20:00'
-  },
-  {
-    id: 7,
-    name: '文章查询',
-    code: 'article:view',
-    type: 'api',
-    parentId: 6,
-    parentName: '文章管理',
-    description: '查询文章信息权限',
-    createTime: '2023-02-20 14:20:00'
-  },
-  {
-    id: 8,
-    name: '文章新增',
-    code: 'article:add',
-    type: 'api',
-    parentId: 6,
-    parentName: '文章管理',
-    description: '新增文章权限',
-    createTime: '2023-02-20 14:20:00'
-  },
-  {
-    id: 9,
-    name: '文章编辑',
-    code: 'article:edit',
-    type: 'api',
-    parentId: 6,
-    parentName: '文章管理',
-    description: '编辑文章信息权限',
-    createTime: '2023-02-20 14:20:00'
-  },
-  {
-    id: 10,
-    name: '文章删除',
-    code: 'article:delete',
-    type: 'api',
-    parentId: 6,
-    parentName: '文章管理',
-    description: '删除文章权限',
-    createTime: '2023-02-20 14:20:00'
-  }
 ];
 
 const dataSource = ref(mockPermissionData);

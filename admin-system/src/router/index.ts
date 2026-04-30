@@ -92,22 +92,7 @@ const router = createRouter({
             title: '页面管理'
           }
         },
-        {
-          path: 'content/article',
-          name: 'ContentArticle',
-          component: () => import('@/views/content/article.vue'),
-          meta: {
-            title: '文章管理'
-          }
-        },
-        {
-          path: 'content/category',
-          name: 'ContentCategory',
-          component: () => import('@/views/content/category.vue'),
-          meta: {
-            title: '分类管理'
-          }
-        },
+
         {
           path: 'settings',
           name: 'Settings',

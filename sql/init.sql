@@ -28,40 +28,6 @@ CREATE TABLE IF NOT EXISTS `roles` (
   UNIQUE KEY `code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
 
--- 创建分类表
-CREATE TABLE IF NOT EXISTS `categories` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `name` varchar(50) NOT NULL COMMENT '分类名称',
-  `slug` varchar(50) NOT NULL COMMENT '分类别名',
-  `description` text COMMENT '描述',
-  `parent_id` int(11) NOT NULL DEFAULT 0 COMMENT '父分类ID',
-  `status` varchar(20) NOT NULL DEFAULT 'active' COMMENT '状态',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `slug` (`slug`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类表';
-
--- 创建文章表
-CREATE TABLE IF NOT EXISTS `articles` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `title` varchar(200) NOT NULL COMMENT '标题',
-  `content` text NOT NULL COMMENT '内容',
-  `summary` text COMMENT '摘要',
-  `author_id` int(11) NOT NULL COMMENT '作者ID',
-  `category_id` int(11) NOT NULL COMMENT '分类ID',
-  `tags` varchar(255) COMMENT '标签',
-  `status` varchar(20) NOT NULL DEFAULT 'draft' COMMENT '状态',
-  `view_count` int(11) NOT NULL DEFAULT 0 COMMENT '浏览量',
-  `published_at` timestamp NULL DEFAULT NULL COMMENT '发布时间',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `author_id` (`author_id`),
-  KEY `category_id` (`category_id`),
-  KEY `status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='文章表';
-
 -- 创建对象表
 CREATE TABLE IF NOT EXISTS `objects` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -155,21 +121,6 @@ INSERT INTO `users` (`id`, `username`, `password`, `name`, `email`, `phone`, `ro
 (1, 'admin', 'e10adc3949ba59abbe56e057f20f883e', '管理员', 'admin@example.com', '13800138000', 1, 'active'),
 (2, 'user1', 'e10adc3949ba59abbe56e057f20f883e', '普通用户', 'user1@example.com', '13800138001', 3, 'active'),
 (3, 'editor', 'e10adc3949ba59abbe56e057f20f883e', '编辑', 'editor@example.com', '13800138002', 2, 'active');
-
--- 分类数据
-INSERT INTO `categories` (`id`, `name`, `slug`, `description`, `parent_id`, `status`) VALUES
-(1, '技术分享', 'technology', '技术相关的文章', 0, 'active'),
-(2, '生活随笔', 'life', '生活相关的文章', 0, 'active'),
-(3, '行业资讯', 'news', '行业相关的资讯', 0, 'active');
-
--- 文章数据
-INSERT INTO `articles` (`id`, `title`, `content`, `summary`, `author_id`, `category_id`, `tags`, `status`, `view_count`, `published_at`) VALUES
-(1, 'Vue3与TypeScript最佳实践', 'Vue3与TypeScript结合使用可以提高代码的可维护性和类型安全性...', '本文探讨了Vue3与TypeScript结合使用的最佳实践...', 1, 1, 'Vue3,TypeScript,前端', 'published', 1250, '2023-01-15 10:30:00'),
-(2, 'React新特性解析', 'React团队发布了新的特性和优化，包括React 18的并发模式...', 'React团队发布了新的特性和优化...', 3, 1, 'React,前端,新特性', 'published', 980, '2023-02-20 14:20:00'),
-(3, '我的旅行日记', '记录了我的一次难忘的旅行经历，包括美丽的风景和有趣的故事...', '记录了我的一次难忘的旅行经历...', 2, 2, '旅行,日记', 'published', 450, '2023-03-10 09:15:00'),
-(4, '人工智能发展趋势', '分析了当前人工智能的发展趋势，包括大语言模型、计算机视觉等领域...', '分析了当前人工智能的发展趋势...', 1, 3, 'AI,趋势,科技', 'draft', 0, NULL),
-(5, 'CSS Grid布局详解', '详细介绍了CSS Grid布局的使用方法和技巧，包括网格定义、对齐方式等...', '详细介绍了CSS Grid布局的使用方法...', 3, 1, 'CSS,Grid,布局', 'published', 780, '2023-04-05 16:45:00'),
-(6, '健康饮食的重要性', '探讨了健康饮食对我们生活的重要性，包括营养均衡、饮食习惯等...', '探讨了健康饮食对我们生活的重要性...', 2, 2, '健康,饮食', 'archived', 210, '2023-05-12 11:30:00');
 
 -- 菜单数据
 INSERT INTO `menus` (`id`, `name`, `path`, `parent_id`, `object_id`, `type`, `status`, `sort`) VALUES

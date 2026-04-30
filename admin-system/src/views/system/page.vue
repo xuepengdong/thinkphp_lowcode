@@ -1,25 +1,6 @@
 <template>
   <div class="page-management">
     <div class="content-container">
-      <!-- 左侧分类树 -->
-      <div class="left-sidebar">
-        <div class="tree-header">
-          <h3>框架结构</h3>
-          <Button size="small" @click="refreshTree">
-            刷新
-          </Button>
-        </div>
-        <div class="tree-container">
-          <a-tree
-            :tree-data="treeData"
-            :default-expand-all="false"
-            :expanded-keys="[]"
-            @select="handleTreeSelect"
-            :field-names="{ title: 'name', key: 'id', children: 'children' }"
-          />
-        </div>
-      </div>
-
       <!-- 右侧内容 -->
       <div class="right-content">
         <div class="search-bar" style="margin-bottom: 16px">
@@ -621,27 +602,6 @@ const buildFieldTreeData = (fields) => {
 // 当前操作的页面记录
 const currentRecord = ref(null)
 
-// 树形结构相关
-const treeData = ref([])
-const selectedMenuId = ref(null)
-
-// 获取树形结构数据
-const getTreeData = async () => {
-  try {
-    const response = await request.get('/api/menu/tree')
-    if (response.code === 200) {
-      treeData.value = response.data
-    }
-  } catch (error) {
-    message.error('获取树形结构失败')
-  }
-}
-
-// 构建树数据
-const buildTreeData = () => {
-  getTreeData()
-}
-
 // 获取对象列表
 const getObjects = async () => {
   try {
@@ -654,17 +614,6 @@ const getObjects = async () => {
   } catch (error) {
     console.error('获取对象列表失败:', error)
   }
-}
-
-// 处理树节点选择
-const handleTreeSelect = (selectedKeys, info) => {
-  selectedMenuId.value = selectedKeys[0] || null
-  getPages()
-}
-
-// 刷新树结构
-const refreshTree = () => {
-  buildTreeData()
 }
 
 const columns = [
@@ -690,9 +639,6 @@ const getPages = async () => {
       page: pagination.current,
       limit: pagination.pageSize,
       search: searchForm.pageName || searchForm.pageId || searchForm.tableName
-    }
-    if (selectedMenuId.value) {
-      params.menu_id = selectedMenuId.value
     }
     const response = await request.get('/api/page/list', { params })
     if (response.code === 200) {

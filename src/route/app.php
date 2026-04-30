@@ -44,26 +44,7 @@ Route::group('api/role', function () {
     Route::get('all', 'api.Role/all')->middleware(\app\middleware\JwtMiddleware::class);
 });
 
-// 分类管理接口
-Route::group('api/category', function () {
-    Route::get('list', 'api.Category/list')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::post('create', 'api.Category/create')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::put('update/:id', 'api.Category/update')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::delete('delete/:id', 'api.Category/delete')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::get('info/:id', 'api.Category/info')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::get('all', 'api.Category/all')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::get('tree', 'api.Category/tree')->middleware(\app\middleware\JwtMiddleware::class);
-});
 
-// 文章管理接口
-Route::group('api/article', function () {
-    Route::get('list', 'api.Article/list')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::post('create', 'api.Article/create')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::put('update/:id', 'api.Article/update')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::delete('delete/:id', 'api.Article/delete')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::get('info/:id', 'api.Article/info')->middleware(\app\middleware\JwtMiddleware::class);
-    Route::post('view/:id', 'api.Article/view');
-});
 
 // 对象管理接口
 Route::group('api/object', function () {

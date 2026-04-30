@@ -86,6 +86,7 @@
         :pagination="pagination"
         @change="handleTableChange"
         row-key="id"
+        :expand-icon-column-index="-1"
       >
         <template #headerCell="{ column }">
           <template v-if="column.key === 'selection'">
@@ -395,8 +396,21 @@ export default defineComponent({
           if (!selectedMenuId.value) {
             menus.value = menuList
           } else {
-            // 如果选择了菜单，显示该菜单的子菜单
-            menus.value = response.data.filter(menu => menu.parent_id === selectedMenuId.value)
+            // 如果选择了菜单，显示该菜单及其所有子菜单
+            const selectedMenu = menuMap[selectedMenuId.value]
+            if (selectedMenu) {
+              // 递归获取所有子节点
+              const getAllChildren = (menu) => {
+                const result = [menu]
+                if (menu.children && menu.children.length > 0) {
+                  menu.children.forEach(child => {
+                    result.push(...getAllChildren(child))
+                  })
+                }
+                return result
+              }
+              menus.value = getAllChildren(selectedMenu)
+            }
           }
           
           menuOptions.value = response.data
@@ -638,7 +652,10 @@ export default defineComponent({
         console.log('删除响应:', response)
         if (response.code === 200) {
           message.success('删除成功')
+          // 刷新右侧列表
           getMenus()
+          // 刷新左侧树结构
+          refreshTree()
         } else {
           message.error(response.message || '删除失败')
         }

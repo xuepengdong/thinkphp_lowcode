@@ -130,8 +130,6 @@ const breadcrumbTitle = computed(() => {
       '/system/object': '系统管理 / 对象管理',
       '/system/menu': '系统管理 / 栏目管理',
       '/system/page': '系统管理 / 页面管理',
-      '/content/article': '内容管理 / 文章管理',
-      '/content/category': '内容管理 / 分类管理',
       '/settings': '系统设置',
     }
     return routeMap[currentRoute.value] || '仪表盘'
@@ -268,20 +266,6 @@ const fetchMenu = async () => {
           {
             key: '/system/page',
             label: '页面管理'
-          }
-        ]
-      },
-      {
-        key: '/content',
-        label: '内容管理',
-        children: [
-          {
-            key: '/content/article',
-            label: '文章管理'
-          },
-          {
-            key: '/content/category',
-            label: '分类管理'
           }
         ]
       },
