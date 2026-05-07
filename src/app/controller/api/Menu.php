@@ -10,24 +10,32 @@ class Menu extends BaseController
     // 获取菜单列表
     public function list(): Json
     {
+        // 获取查询参数
+        $id = $this->request->param('id', '', 'trim');
+        
         // 从数据库获取菜单列表
-        $menus = Db::table('menus')
-            ->where('status', 'active')
-            ->order('sort', 'asc')
-            ->select();
+        $query = Db::table('menus')
+            ->where('status', 'active');
+        
+        // 如果传入了 id 参数，查询特定菜单
+        if (!empty($id)) {
+            $query->where('id', $id);
+        }
+        
+        $menus = $query->order('sort', 'asc')->select();
 
         // 确保默认菜单存在（使用较大的ID避免与用户生成的栏目冲突）
         $defaultMenus = [
-            ['id' => 1001, 'name' => '系统管理', 'path' => '/system', 'parent_id' => 0, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1002, 'name' => '用户管理', 'path' => '/system/user', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1003, 'name' => '角色管理', 'path' => '/system/role', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
-            ['id' => 1004, 'name' => '权限管理', 'path' => '/system/permission', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 3, 'status' => 'active'],
-            ['id' => 1005, 'name' => '对象管理', 'path' => '/system/object', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 4, 'status' => 'active'],
-            ['id' => 1006, 'name' => '页面管理', 'path' => '/system/page', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 5, 'status' => 'active'],
-            ['id' => 1007, 'name' => '栏目管理', 'path' => '/system/menu', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 6, 'status' => 'active'],
-            ['id' => 1008, 'name' => '内容管理', 'path' => '/content', 'parent_id' => 0, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
-            ['id' => 1009, 'name' => '文章管理', 'path' => '/content/article', 'parent_id' => 1008, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1010, 'name' => '分类管理', 'path' => '/content/category', 'parent_id' => 1008, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active']
+            ['id' => 1001, 'name' => '系统管理', 'path' => '/system', 'parent_id' => 0, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1002, 'name' => '用户管理', 'path' => '/system/user', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1003, 'name' => '角色管理', 'path' => '/system/role', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
+            ['id' => 1004, 'name' => '权限管理', 'path' => '/system/permission', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 3, 'status' => 'active'],
+            ['id' => 1005, 'name' => '对象管理', 'path' => '/system/object', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 4, 'status' => 'active'],
+            ['id' => 1006, 'name' => '页面管理', 'path' => '/system/page', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 5, 'status' => 'active'],
+            ['id' => 1007, 'name' => '栏目管理', 'path' => '/system/menu', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 6, 'status' => 'active'],
+            ['id' => 1008, 'name' => '内容管理', 'path' => '/content', 'parent_id' => 0, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
+            ['id' => 1009, 'name' => '文章管理', 'path' => '/content/article', 'parent_id' => 1008, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1010, 'name' => '分类管理', 'path' => '/content/category', 'parent_id' => 1008, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active']
         ];
 
         // 检查默认菜单是否存在，不存在则添加
@@ -69,6 +77,7 @@ class Menu extends BaseController
                     'path' => $menu['path'],
                     'parent_id' => $menu['parent_id'],
                     'object_id' => $menu['object_id'],
+                    'page_id' => isset($menu['page_id']) ? $menu['page_id'] : '',
                     'type' => $menu['type'],
                     'sort' => $menu['sort'],
                     'status' => $menu['status'],
@@ -93,16 +102,16 @@ class Menu extends BaseController
 
         // 确保默认菜单存在（使用较大的ID避免与用户生成的栏目冲突）
         $defaultMenus = [
-            ['id' => 1001, 'name' => '系统管理', 'path' => '/system', 'parent_id' => 0, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1002, 'name' => '用户管理', 'path' => '/system/user', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1003, 'name' => '角色管理', 'path' => '/system/role', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
-            ['id' => 1004, 'name' => '权限管理', 'path' => '/system/permission', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 3, 'status' => 'active'],
-            ['id' => 1005, 'name' => '对象管理', 'path' => '/system/object', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 4, 'status' => 'active'],
-            ['id' => 1006, 'name' => '页面管理', 'path' => '/system/page', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 5, 'status' => 'active'],
-            ['id' => 1007, 'name' => '栏目管理', 'path' => '/system/menu', 'parent_id' => 1001, 'object_id' => '', 'type' => 'menu', 'sort' => 6, 'status' => 'active'],
-            ['id' => 1008, 'name' => '内容管理', 'path' => '/content', 'parent_id' => 0, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
-            ['id' => 1009, 'name' => '文章管理', 'path' => '/content/article', 'parent_id' => 1008, 'object_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
-            ['id' => 1010, 'name' => '分类管理', 'path' => '/content/category', 'parent_id' => 1008, 'object_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active']
+            ['id' => 1001, 'name' => '系统管理', 'path' => '/system', 'parent_id' => 0, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1002, 'name' => '用户管理', 'path' => '/system/user', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1003, 'name' => '角色管理', 'path' => '/system/role', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
+            ['id' => 1004, 'name' => '权限管理', 'path' => '/system/permission', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 3, 'status' => 'active'],
+            ['id' => 1005, 'name' => '对象管理', 'path' => '/system/object', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 4, 'status' => 'active'],
+            ['id' => 1006, 'name' => '页面管理', 'path' => '/system/page', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 5, 'status' => 'active'],
+            ['id' => 1007, 'name' => '栏目管理', 'path' => '/system/menu', 'parent_id' => 1001, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 6, 'status' => 'active'],
+            ['id' => 1008, 'name' => '内容管理', 'path' => '/content', 'parent_id' => 0, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active'],
+            ['id' => 1009, 'name' => '文章管理', 'path' => '/content/article', 'parent_id' => 1008, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 1, 'status' => 'active'],
+            ['id' => 1010, 'name' => '分类管理', 'path' => '/content/category', 'parent_id' => 1008, 'object_id' => '', 'page_id' => '', 'type' => 'menu', 'sort' => 2, 'status' => 'active']
         ];
 
         // 检查默认菜单是否存在，不存在则添加
@@ -136,7 +145,7 @@ class Menu extends BaseController
     public function create(): Json
     {
         $data = $this->request->only([
-            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'call_type', 'page_name'
+            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'call_type', 'page_name', 'page_id'
         ]);
 
         $validate = $this->validate($data, [
@@ -168,7 +177,7 @@ class Menu extends BaseController
     public function update($id): Json
     {
         $data = $this->request->only([
-            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'status', 'call_type', 'page_name'
+            'name', 'path', 'parent_id', 'object_id', 'type', 'sort', 'status', 'call_type', 'page_name', 'page_id'
         ]);
 
         $menu = Db::table('menus')->find($id);

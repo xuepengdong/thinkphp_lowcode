@@ -469,6 +469,124 @@ class Objects extends BaseController
         Db::execute($sql);
     }
     
+    // 创建数据记录
+    public function createData(): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        $data = $this->request->param();
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        // 获取对象信息
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        // 获取表名
+        $tableName = $object['name_en'];
+        
+        // 检查表是否存在
+        $exists = Db::query("SHOW TABLES LIKE '{$tableName}'");
+        if (empty($exists)) {
+            return json(['code' => 404, 'message' => '数据表不存在']);
+        }
+        
+        // 移除 object_id 字段，因为数据表中没有这个字段
+        unset($data['object_id']);
+        
+        // 添加时间戳
+        $data['created_at'] = date('Y-m-d H:i:s');
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        
+        // 插入数据
+        $id = Db::table($tableName)->insertGetId($data);
+        
+        return json([
+            'code' => 200,
+            'message' => '创建成功',
+            'data' => ['id' => $id] + $data
+        ]);
+    }
+    
+    // 更新数据记录
+    public function updateData($id): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        $data = $this->request->param();
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        // 获取对象信息
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        // 获取表名
+        $tableName = $object['name_en'];
+        
+        // 检查表是否存在
+        $exists = Db::query("SHOW TABLES LIKE '{$tableName}'");
+        if (empty($exists)) {
+            return json(['code' => 404, 'message' => '数据表不存在']);
+        }
+        
+        // 移除 object_id 和 id 字段
+        unset($data['object_id']);
+        unset($data['id']);
+        
+        // 添加更新时间
+        $data['updated_at'] = date('Y-m-d H:i:s');
+        
+        // 更新数据
+        Db::table($tableName)->where('id', $id)->update($data);
+        
+        return json([
+            'code' => 200,
+            'message' => '更新成功',
+            'data' => ['id' => $id] + $data
+        ]);
+    }
+    
+    // 删除数据记录
+    public function deleteData($id): Json
+    {
+        // 获取 object_id（优先从 GET 参数获取）
+        $object_id = $this->request->get('object_id', '', 'trim');
+        
+        // 如果 GET 参数为空，尝试从 POST 参数获取
+        if (empty($object_id)) {
+            $object_id = $this->request->post('object_id', '', 'trim');
+        }
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        // 获取对象信息
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        // 获取表名
+        $tableName = $object['name_en'];
+        
+        // 使用原生 SQL 直接删除，避免 Query Builder 可能的问题
+        $sql = "DELETE FROM `{$tableName}` WHERE `id` = ?";
+        Db::execute($sql, [$id]);
+        
+        return json([
+            'code' => 200,
+            'message' => '删除成功'
+        ]);
+    }
+    
     // 获取对象数据
     public function data(): Json
     {
@@ -495,9 +613,63 @@ class Objects extends BaseController
             return json(['code' => 200, 'data' => ['list' => [], 'total' => 0]]);
         }
         
+        // 构建查询
+        $query = Db::table($tableName);
+        
+        // 处理动态搜索条件
+        $params = $this->request->param();
+        foreach ($params as $key => $value) {
+            // 跳过已知参数
+            if (in_array($key, ['object_id', 'page', 'page_size'])) {
+                continue;
+            }
+            
+            // 跳过数字键（数组索引）
+            if (!is_string($key)) {
+                continue;
+            }
+            
+            // 检查是否为操作符参数（兼容PHP 7）
+            $operatorSuffix = '_operator';
+            if (substr($key, -strlen($operatorSuffix)) === $operatorSuffix) {
+                continue;
+            }
+            
+            // 获取对应的操作符
+            $operator = $this->request->param($key . '_operator', 'like');
+            
+            // 根据操作符添加查询条件
+            switch ($operator) {
+                case '=':
+                    $query->where($key, '=', $value);
+                    break;
+                case '!=':
+                    $query->where($key, '<>', $value);
+                    break;
+                case '>':
+                    $query->where($key, '>', $value);
+                    break;
+                case '<':
+                    $query->where($key, '<', $value);
+                    break;
+                case '>=':
+                    $query->where($key, '>=', $value);
+                    break;
+                case '<=':
+                    $query->where($key, '<=', $value);
+                    break;
+                case 'like':
+                case 'start':
+                case 'end':
+                default:
+                    $query->where($key, 'like', $value);
+                    break;
+            }
+        }
+        
         // 获取数据
-        $total = Db::table($tableName)->count();
-        $list = Db::table($tableName)
+        $total = $query->count();
+        $list = $query
             ->order('id', 'desc')
             ->page($page, $page_size)
             ->select();
@@ -509,5 +681,309 @@ class Objects extends BaseController
                 'total' => $total
             ]
         ]);
+    }
+
+    // 导出数据
+    public function export(): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        $fields = $this->request->param('fields', '[]');
+        $filters = $this->request->param('filters', '[]');
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        $tableName = $object['name_en'];
+        
+        $exists = Db::query("SHOW TABLES LIKE '{$tableName}'");
+        if (empty($exists)) {
+            return json(['code' => 404, 'message' => '数据表不存在']);
+        }
+        
+        $fields = json_decode($fields, true);
+        $filters = json_decode($filters, true);
+        
+        $query = Db::table($tableName);
+        
+        // 添加筛选条件
+        if (!empty($filters)) {
+            if (isset($filters['limit']) && $filters['limit'] > 0) {
+                $query->limit($filters['limit']);
+            }
+        }
+        
+        $data = $query->select()->toArray();
+        
+        // 如果指定了字段，只返回指定字段
+        if (!empty($fields)) {
+            $fieldNames = array_column($fields, 'fieldName');
+            $data = array_map(function($item) use ($fieldNames) {
+                $result = [];
+                foreach ($fieldNames as $field) {
+                    $result[$field] = $item[$field] ?? '';
+                }
+                return $result;
+            }, $data);
+        }
+        
+        // 生成Excel内容
+        $header = !empty($fields) ? array_column($fields, 'label') : array_keys($data[0] ?? []);
+        
+        ob_start();
+        $fp = fopen('php://output', 'w');
+        
+        // 写入BOM头，确保Excel正确识别UTF-8编码
+        fwrite($fp, "\xEF\xBB\xBF");
+        
+        fputcsv($fp, $header);
+        
+        foreach ($data as $row) {
+            $rowData = [];
+            foreach ($header as $h) {
+                $fieldName = !empty($fields) ? $fields[array_search($h, array_column($fields, 'label'))]['fieldName'] : $h;
+                $rowData[] = $row[$fieldName] ?? '';
+            }
+            fputcsv($fp, $rowData);
+        }
+        
+        fclose($fp);
+        
+        $content = ob_get_clean();
+        
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="export_' . $object_id . '_' . date('YmdHis') . '.csv"');
+        header('Cache-Control: max-age=0');
+        
+        echo $content;
+        exit;
+    }
+
+    // 获取导入模板
+    public function importTemplate(): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        $fields = Db::table('object_fields')->where('object_id', $object_id)->select()->toArray();
+        
+        $header = ['ID'];
+        foreach ($fields as $field) {
+            $header[] = $field['field_name_zh'] ?? $field['field_name_en'];
+        }
+        
+        ob_start();
+        $fp = fopen('php://output', 'w');
+        fwrite($fp, "\xEF\xBB\xBF");
+        fputcsv($fp, $header);
+        
+        // 添加示例数据行
+        $example = ['(新增留空或填写ID用于更新)'];
+        foreach ($fields as $field) {
+            $example[] = '请输入' . ($field['field_name_zh'] ?? $field['field_name_en']);
+        }
+        fputcsv($fp, $example);
+        
+        fclose($fp);
+        
+        $content = ob_get_clean();
+        
+        header('Content-Type: application/vnd.ms-excel');
+        header('Content-Disposition: attachment;filename="import_template_' . $object_id . '.csv"');
+        header('Cache-Control: max-age=0');
+        
+        echo $content;
+        exit;
+    }
+
+    // 导入数据
+    public function import(): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        $relationTables = $this->request->param('relation_tables', '[]');
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        $tableName = $object['name_en'];
+        
+        $file = $this->request->file('file');
+        if (!$file) {
+            return json(['code' => 400, 'message' => '请选择上传文件']);
+        }
+        
+        $info = $file->validate(['ext' => 'csv,xls,xlsx'])->move('./uploads');
+        if (!$info) {
+            return json(['code' => 400, 'message' => '文件上传失败: ' . $file->getError()]);
+        }
+        
+        $filePath = './uploads/' . $info->getSaveName();
+        
+        try {
+            $data = $this->readCsvFile($filePath);
+        } catch (\Exception $e) {
+            return json(['code' => 400, 'message' => '文件读取失败: ' . $e->getMessage()]);
+        }
+        
+        if (empty($data)) {
+            return json(['code' => 400, 'message' => '文件内容为空']);
+        }
+        
+        $fields = Db::table('object_fields')->where('object_id', $object_id)->select()->toArray();
+        $fieldNames = array_column($fields, 'field_name_en');
+        
+        $relationTables = json_decode($relationTables, true);
+        
+        $successCount = 0;
+        $failCount = 0;
+        $errors = [];
+        
+        foreach ($data as $index => $row) {
+            try {
+                $rowData = [];
+                foreach ($fieldNames as $fieldName) {
+                    $rowData[$fieldName] = $row[$fieldName] ?? '';
+                }
+                
+                // 处理关联表
+                foreach ($relationTables as $relation) {
+                    $displayField = $relation['displayField'];
+                    $keyField = $relation['keyField'];
+                    $tableNameRel = $relation['tableName'];
+                    
+                    if (isset($row[$displayField]) && !empty($row[$displayField])) {
+                        $relatedRecord = Db::table($tableNameRel)->where($displayField, $row[$displayField])->find();
+                        if ($relatedRecord) {
+                            $rowData[$keyField] = $relatedRecord[$keyField];
+                        }
+                    }
+                }
+                
+                $rowData['created_at'] = date('Y-m-d H:i:s');
+                $rowData['updated_at'] = date('Y-m-d H:i:s');
+                
+                if (!empty($row['id'])) {
+                    Db::table($tableName)->where('id', $row['id'])->update($rowData);
+                } else {
+                    Db::table($tableName)->insert($rowData);
+                }
+                
+                $successCount++;
+            } catch (\Exception $e) {
+                $failCount++;
+                $errors[] = '第' . ($index + 2) . '行: ' . $e->getMessage();
+            }
+        }
+        
+        // 删除临时文件
+        unlink($filePath);
+        
+        return json([
+            'code' => 200,
+            'success' => true,
+            'message' => '导入完成',
+            'data' => [
+                'successCount' => $successCount,
+                'failCount' => $failCount,
+                'errors' => $errors
+            ]
+        ]);
+    }
+
+    // 获取关联表列表
+    public function relationTables(): Json
+    {
+        $object_id = $this->request->param('object_id', '', 'trim');
+        
+        if (empty($object_id)) {
+            return json(['code' => 400, 'message' => '对象ID不能为空']);
+        }
+        
+        $object = Db::table('objects')->where('object_id', $object_id)->find();
+        if (!$object) {
+            return json(['code' => 404, 'message' => '对象不存在']);
+        }
+        
+        // 获取所有其他对象作为可能的关联表
+        $relations = Db::table('objects')
+            ->where('object_id', '<>', $object_id)
+            ->where('status', 'active')
+            ->select()
+            ->toArray();
+        
+        $result = [];
+        foreach ($relations as $rel) {
+            $firstField = Db::table('object_fields')
+                ->where('object_id', $rel['object_id'])
+                ->order('id')
+                ->find();
+            
+            $result[] = [
+                'table_name' => $rel['name_en'],
+                'key_field' => 'id',
+                'display_field' => $firstField['field_name_en'] ?? 'name'
+            ];
+        }
+        
+        return json([
+            'code' => 200,
+            'success' => true,
+            'data' => $result
+        ]);
+    }
+
+    // 读取CSV文件
+    private function readCsvFile($filePath)
+    {
+        $data = [];
+        $header = [];
+        
+        $file = fopen($filePath, 'r');
+        if (!$file) {
+            throw new \Exception('无法打开文件');
+        }
+        
+        // 读取BOM头
+        $bom = fread($file, 3);
+        if ($bom !== "\xEF\xBB\xBF") {
+            fseek($file, 0);
+        }
+        
+        $rowIndex = 0;
+        while (($row = fgetcsv($file)) !== false) {
+            if ($rowIndex === 0) {
+                $header = $row;
+            } else {
+                $rowData = [];
+                foreach ($header as $index => $h) {
+                    $rowData[$h] = $row[$index] ?? '';
+                }
+                $data[] = $rowData;
+            }
+            $rowIndex++;
+        }
+        
+        fclose($file);
+        
+        return $data;
     }
 }

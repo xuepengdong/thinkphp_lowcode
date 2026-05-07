@@ -97,6 +97,28 @@ const openKeys = ref([])
 const currentRoute = computed(() => route.path)
 const fixedTabs = ref([])
 
+// 从localStorage恢复标签页状态
+const restoreTabs = () => {
+  try {
+    const savedTabs = localStorage.getItem('fixedTabs')
+    if (savedTabs) {
+      fixedTabs.value = JSON.parse(savedTabs)
+    }
+  } catch (e) {
+    console.error('恢复标签页状态失败:', e)
+    fixedTabs.value = []
+  }
+}
+
+// 保存标签页状态到localStorage
+const saveTabs = () => {
+  try {
+    localStorage.setItem('fixedTabs', JSON.stringify(fixedTabs.value))
+  } catch (e) {
+    console.error('保存标签页状态失败:', e)
+  }
+}
+
 // 根据当前路由获取完整的面包屑路径
 const breadcrumbTitle = computed(() => {
     // 首先尝试从菜单数据中查找路径
@@ -176,6 +198,7 @@ const handleMenuClick = (e) => {
       key: tabKey,
       label: label
     })
+    saveTabs()
   }
 }
 
@@ -187,6 +210,7 @@ const handleTabClick = (tab) => {
 // 删除标签
 const removeTab = (key) => {
   fixedTabs.value = fixedTabs.value.filter(tab => tab.key !== key)
+  saveTabs()
 }
 
 const handleOpenChange = (keys) => {
@@ -309,6 +333,36 @@ const fetchUserInfo = async () => {
 onMounted(() => {
   fetchMenu()
   fetchUserInfo()
+  // 恢复标签页状态
+  restoreTabs()
+  
+  // 如果当前路由不在标签页中，添加一个标签页
+  const currentPath = route.path
+  const tabExists = fixedTabs.value.some(tab => tab.key === currentPath)
+  if (!tabExists && currentPath !== '/login') {
+    // 根据当前路由获取标签名称
+    let tabLabel = ''
+    const routeMap = {
+      '/': '仪表盘',
+      '/dashboard/overview': '概览',
+      '/dashboard/analytics': '数据分析',
+      '/system/user': '用户管理',
+      '/system/role': '角色管理',
+      '/system/permission': '权限管理',
+      '/system/object': '对象管理',
+      '/system/menu': '栏目管理',
+      '/system/page': '页面管理',
+      '/settings': '系统设置',
+      '/page/list': '列表页面'
+    }
+    tabLabel = routeMap[currentPath] || currentPath
+    
+    fixedTabs.value.push({
+      key: currentPath,
+      label: tabLabel
+    })
+    saveTabs()
+  }
 })
 </script>
 

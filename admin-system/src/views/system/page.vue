@@ -276,7 +276,11 @@
                     :class="{ 'drop-cell': isDropTarget && dropPosition.rowIndex === rowIndex && dropPosition.colIndex === colIndex }"
                   >
                     <template v-if="field">
-                      <span class="field-tag">{{ field.label }}<span class="field-tag-close" @click="removeDisplayField(getFieldIndex(rowIndex, colIndex))">×</span></span>
+                      <span
+                        class="field-tag"
+                        draggable="true"
+                        @dragstart="handleDisplayFieldDragStart($event, field, getFieldIndex(rowIndex, colIndex))"
+                      >{{ field.label }}<span class="field-tag-close" @click.stop="removeDisplayField(getFieldIndex(rowIndex, colIndex))">×</span></span>
                     </template>
                     <template v-else>
                       <span class="empty-cell-hint">空</span>
@@ -490,6 +494,7 @@ import { ref, reactive, onMounted, watch, nextTick, computed } from 'vue'
 import { message, Button, Input, Select, Table, Form, Space, Dropdown, Menu, Modal, Tree } from 'ant-design-vue'
 import { SearchOutlined, DownOutlined } from '@ant-design/icons-vue'
 import request from '@/utils/request'
+import { useRoute } from 'vue-router'
 
 const searchForm = reactive({
   pageId: '',
@@ -497,6 +502,9 @@ const searchForm = reactive({
   tableName: '',
   pageType: ''
 })
+
+// 路由实例
+const route = useRoute()
 
 const pages = ref([])
 const loading = ref(false)
@@ -771,19 +779,34 @@ const currentRecord = ref(null)
 
 // 拖拽相关状态
 const draggingField = ref(null)
+const dragSource = ref('available') // 'available' | 'display'
+const dragSourceIndex = ref(-1)
 const isDropTarget = ref(false)
 const dropPosition = ref({ rowIndex: -1, colIndex: -1 })
 
-// 开始拖拽
+// 开始拖拽（从字段选择区）
 const handleDragStart = (event, field) => {
   draggingField.value = field
+  dragSource.value = 'available'
+  dragSourceIndex.value = -1
   event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('text/plain', JSON.stringify(field))
+}
+
+// 开始拖拽（从显示字段区）
+const handleDisplayFieldDragStart = (event, field, fieldIndex) => {
+  draggingField.value = field
+  dragSource.value = 'display'
+  dragSourceIndex.value = fieldIndex
+  event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', JSON.stringify(field))
 }
 
 // 拖拽结束
 const handleDragEnd = () => {
   draggingField.value = null
+  dragSource.value = 'available'
+  dragSourceIndex.value = -1
   isDropTarget.value = false
   dropPosition.value = { rowIndex: -1, colIndex: -1 }
 }
@@ -807,22 +830,55 @@ const handleCellDrop = (rowIndex, colIndex, event) => {
   event.preventDefault()
   isDropTarget.value = false
   dropPosition.value = { rowIndex: -1, colIndex: -1 }
-  
-  if (draggingField.value) {
-    const field = draggingField.value
-    // 检查字段是否已存在
+
+  if (!draggingField.value) return
+
+  const field = draggingField.value
+  let targetIndex = rowIndex * 5 + colIndex
+
+  if (dragSource.value === 'display') {
+    // 从显示字段区拖拽 → 重新排序
+    const oldIndex = dragSourceIndex.value
+    if (oldIndex < 0 || oldIndex >= pageSettingForm.displayFields.length) return
+
+    const movedField = pageSettingForm.displayFields[oldIndex]
+    // 移除旧位置
+    pageSettingForm.displayFields.splice(oldIndex, 1)
+    // 调整目标索引（如果 oldIndex < targetIndex，移除后索引减1）
+    if (oldIndex < targetIndex) {
+      targetIndex--
+    }
+    // 插入到新位置
+    targetIndex = Math.min(targetIndex, pageSettingForm.displayFields.length)
+    pageSettingForm.displayFields.splice(targetIndex, 0, movedField)
+
+    draggingField.value = null
+    dragSource.value = 'available'
+    dragSourceIndex.value = -1
+
+    // 更新排序值
+    pageSettingForm.displayFields.forEach((f, i) => {
+      f.sort = i + 1
+    })
+  } else {
+    // 从字段选择区拖拽 → 添加新字段
     const exists = pageSettingForm.displayFields.some(f => f.fieldId === field.id)
     if (!exists) {
-      const targetIndex = rowIndex * 5 + colIndex
-      // 如果目标位置已有字段，插入到该位置
+      targetIndex = Math.min(targetIndex, pageSettingForm.displayFields.length)
       pageSettingForm.displayFields.splice(targetIndex, 0, {
         fieldId: field.id,
         fieldName: field.field_name_en,
         label: field.field_name_zh || field.field_name_en,
         sort: targetIndex + 1
       })
+      // 更新后续字段的排序值
+      pageSettingForm.displayFields.forEach((f, i) => {
+        f.sort = i + 1
+      })
     }
     draggingField.value = null
+    dragSource.value = 'available'
+    dragSourceIndex.value = -1
   }
 }
 
@@ -1387,10 +1443,31 @@ const handleH5Setting = (record) => {
   // 这里可以添加实际的设置H5展现形式逻辑
 }
 
-onMounted(() => {
-  getPages()
+onMounted(async () => {
+  // 等待页面数据加载完成
+  await getPages()
   buildTreeData()
+  
+  // 检查URL参数，自动打开页面设置弹窗
+  checkUrlParams()
 })
+
+// 检查URL参数
+const checkUrlParams = () => {
+  const pageId = route.query.pageId
+  const action = route.query.action
+  
+  if (pageId && action === 'setting') {
+    // 查找对应页面记录
+    const pageRecord = pages.value.find(p => p.id === pageId)
+    if (pageRecord) {
+      // 打开设置弹窗
+      handlePageSetting(pageRecord)
+    } else {
+      message.warning('未找到对应的页面记录')
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -1709,6 +1786,16 @@ onMounted(() => {
   color: #fff;
   border-radius: 4px;
   font-size: 14px;
+  cursor: grab;
+  user-select: none;
+}
+
+.field-tag:active {
+  cursor: grabbing;
+}
+
+.field-tag.dragging {
+  opacity: 0.5;
 }
 
 .field-tag-close {

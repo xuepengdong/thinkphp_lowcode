@@ -113,6 +113,9 @@
           <template v-else-if="column.key === 'object_id'">
             {{ record.object_id || '-' }}
           </template>
+          <template v-else-if="column.key === 'page_name'">
+            {{ record.page_name || record.path || '-' }}
+          </template>
           <template v-else-if="column.key === 'object_name'">
             {{ getObjectName(record.object_id) }}
           </template>
@@ -274,6 +277,7 @@ export default defineComponent({
       path: '',
       call_type: 'url',
       page_name: '',
+      page_id: '',
       parent_id: 0,
       object_id: '',
       type: 'menu',
@@ -353,6 +357,7 @@ export default defineComponent({
       { title: '父级栏目', dataIndex: 'parent_id', key: 'parent_id', width: 150 },
       { title: '栏目类型', dataIndex: 'type', key: 'type', width: 100 },
       { title: '页面ID/调用地址', dataIndex: 'path', key: 'path', width: 200 },
+      { title: '所属页面', key: 'page_name', width: 150 },
       { title: '对象ID', dataIndex: 'object_id', key: 'object_id', width: 100 },
       { title: '对象名称', key: 'object_name', width: 150 },
       { title: '表名', key: 'table_name', width: 150 }
@@ -587,6 +592,9 @@ export default defineComponent({
       formData.id = null
       formData.name = ''
       formData.path = ''
+      formData.call_type = 'url'
+      formData.page_name = ''
+      formData.page_id = ''
       formData.parent_id = 0
       formData.object_id = ''
       formData.type = 'menu'
@@ -603,6 +611,7 @@ export default defineComponent({
       formData.path = record.path
       formData.call_type = record.call_type || 'url'
       formData.page_name = record.page_name || record.path || ''
+      formData.page_id = record.page_id || ''
       formData.parent_id = record.parent_id
       formData.object_id = record.object_id || ''
       formData.type = record.type
@@ -738,6 +747,8 @@ export default defineComponent({
     const selectPage = (record) => {
       formData.path = record.id.toString()
       formData.page_name = record.name || record.page_name || '未知页面'
+      // 保存页面ID
+      formData.page_id = record.id.toString()
       // 同时保存页面关联的对象ID
       formData.object_id = record.object_id || ''
       pageSelectModalVisible.value = false

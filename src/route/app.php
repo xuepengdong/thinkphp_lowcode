@@ -56,6 +56,15 @@ Route::group('api/object', function () {
     Route::post('generate-page', 'api.Objects/generatePage')->middleware(\app\middleware\JwtMiddleware::class);
     Route::post('clear-data', 'api.Objects/clearData')->middleware(\app\middleware\JwtMiddleware::class);
     Route::get('data', 'api.Objects/data')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::post('data', 'api.Objects/createData')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::put('data/:id', 'api.Objects/updateData')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::delete('data/:id', 'api.Objects/deleteData')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::post('data/:id/delete', 'api.Objects/deleteData')->middleware(\app\middleware\JwtMiddleware::class);
+    // 导入导出接口
+    Route::get('export', 'api.Objects/export')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::get('import/template', 'api.Objects/importTemplate')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::post('import', 'api.Objects/import')->middleware(\app\middleware\JwtMiddleware::class);
+    Route::get('relation-tables', 'api.Objects/relationTables')->middleware(\app\middleware\JwtMiddleware::class);
 });
 
 // 对象字段管理接口
