@@ -5,10 +5,16 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   position: relative;
   overflow: hidden;
+  justify-content: center;
+  align-items: center;
 }
 
 .login-bg {
-  flex: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-image: url('@/assets/hero.png');
   background-size: cover;
   background-position: center;
@@ -22,7 +28,6 @@
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  margin: auto;
   position: relative;
   z-index: 1;
 }

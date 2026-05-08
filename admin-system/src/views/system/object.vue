@@ -95,8 +95,8 @@
       @cancel="handleModalCancel"
     >
       <a-form :model="formData" :rules="formRules" ref="formRef">
-        <a-form-item label="对象Id" name="object_id" required>
-          <a-input v-model:value="formData.object_id" placeholder="自动生成" readonly />
+        <a-form-item name="object_id" style="display: none;">
+          <a-input v-model:value="formData.object_id" />
         </a-form-item>
         <a-form-item label="对象名称（英文）" name="name_en" required>
           <a-input v-model:value="formData.name_en" placeholder="请输入对象名称（英文）" />
